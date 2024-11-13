@@ -13,7 +13,7 @@ The data includes the following variables:
 - **Source**: The wholesale center providing the data.
 - **Price**: The average price per kilogram for the given product.
 
-![Potato Price Trend](Plots/All%20series.pdf)
+![Potato Price Trend](Plots/All-series.png)
 
 > In the open data portal, the data is divided by year, but it has been consolidated into a single dataset to create the time series. Some filtering was done too to focus on the Corabastos info and just in the potato prices. 
 
