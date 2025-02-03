@@ -1,4 +1,4 @@
-# The data were obtained from the open data website of DANE and have been collected
+# The data was obtained from the open data website of DANE and have been collected
 # from 2013 to 2023 under the framework of SIPSA: the Price and Supply Information 
 # System for the Food and Agricultural Sector. They represent the average price per
 # kilogram reported by wholesalers at the main collection points across the country, 
@@ -11,9 +11,10 @@
 #   - Fuente: Which wholesale center provided the information?
 #   - Precio: Monthly average price per kilogram of the product
 
+library(dplyr)
 
 # =====> Setting a fixed directory
-dir = 'UN/4) Series de tiempo univariadas (STU)/2) Workplace/Data'
+dir = '~/UN/4) Series de tiempo univariadas (STU)/2) Workplace/Data'
 setwd(dir)
 
 # =====> Reading the data
@@ -54,17 +55,29 @@ library(dplyr)
 data = data %>% 
   filter(stringr::str_detect(Producto, "Papa ") & Fuente == "Bogotá, D.C., Corabastos") %>% 
   mutate(Precio = as.integer(gsub(pattern = '\\.', x = Precio, replacement = ''))) %>% 
-  select(-Grupo, -Fecha) # The Group and Date variables are no longer needed
+  select(-Grupo) # The Group variable in no longer needed
 
 # =====> Saving the time series
 # Since there are multiple kinds of potatoes, all time series will be
-# stored in a list for easier plotting.
-TimeSeries = list()
-Products = unique(data$Producto)
-for (i in 1:length(Products)){
-  Product = Products[i]
-  TimeSeries[[Product]] = ts(data$Precio[data$Producto == Product], start = c(2013,1), frequency = 12)
+# stored in a multivariate ts object for easier plotting
+TimeSeries <- data |> 
+  filter(Producto == unique(Producto)[1]) |> 
+  select(Fecha, Precio) 
+colnames(TimeSeries) <- c('Fecha', as.character(unique(data$Producto)[1]))
+
+for (i in unique(data$Producto)[-1]) {
+  # Filtra el producto actual y renombra la columna de precios
+  product_data <- data |> 
+    filter(Producto == i) |> 
+    select(Fecha, Precio)
+  
+  colnames(product_data) <- c('Fecha', as.character(i))
+  
+  # Une los datos con TimeSeries usando full_join para mantener todas las fechas
+  TimeSeries <- TimeSeries |> 
+    full_join(product_data, by = 'Fecha')
 }
+TimeSeries = ts(TimeSeries[,-1], start = 2013, freq = 12)
 
 # str(TimeSeries)
 # After filtering to include only information from Corabastos, some series are left
@@ -72,72 +85,51 @@ for (i in 1:length(Products)){
 # Papa suprema, Papa rubí, and Papa Betina (this one has only a single observation).
 
 
-# =====> Plotting all the series
-
-# A blank plot
+# ===> PLotting all the series
+# png('Plots/allSeries.png', width = 15, height = 7.5, units = 'in', res = 250)
 par(mar = c(3, 4.1, 4.1, 2.1))
-plot(x = NA, y = NA, xlim = c(2013, 2024),
-     ylim = c(min(sapply(TimeSeries, min, na.rm = TRUE)) - 50, 
-              max(sapply(TimeSeries, max, na.rm = TRUE)) + 50),
-     main = 'Potato Prices', xlab = NA, ylab = 'Colombian Pesos')
+colores <- RColorBrewer::brewer.pal(n = 11, name = 'Paired')
+plot(TimeSeries, col = colores, plot.type = 'single', ylab = 'Colombian pesos', xlab = NA, type = "n",
+     bty = 'n', axes = F, font.lab = 2)
+title(main = 'Potato price', cex.main = 3, line = 2)
+axis(1, lwd = 2, font = 2); axis(2, lwd = 2, font = 2); box(bty = 'l', lwd = 2)
+abline(v = 2013:2024, col = 'gray', lty = 'dashed')                       # Reference lines
+abline(h = seq(0, 5000, by = 500), col = 'gray', lty = 'dashed')
 
-# Additional information
+for (i in 1:ncol(TimeSeries)) {
+  lines(TimeSeries[, i], col = colores[i], lwd = 1.5)                     # Plotting all the series
+}
+
+legend(x = 'topleft', x.intersp = 0.5, y.intersp = 1,
+       # Position, space between legend items in x and y
+       bty = 'n', col = colores, lty = 'solid', text.font = 2,
+       # Remove legend box, set colors and line type
+       ncol = 4, cex = 0.8, legend = colnames(TimeSeries))
+
 mtext(bquote(bold('Monthly average price per kilogram')), side = 3,
       col = 'gray', line = 0.35)
 mtext('Prices reported at Corabastos (Bogotá D.C.)', side = 1,
       line = -1.1, cex = 0.8, adj = 0.99, col = 'darkgray')
+# dev.off()
 
-# Reference lines
-abline(v = seq(2013, 2024, by = 0.5), col = 'gray', lty = 'dashed')
-abline(h = seq(0, 5000, by = 500), col = 'gray', lty = 'dashed')
+# =====> Selected serie
+# The project is going to be about Papa Superior because it is mainly produced in Cundinamarca.
 
-# In total there are 11 different series
-colors <- RColorBrewer::brewer.pal(n = 11, name = 'Paired')
-
-# Plot each time series
-for (i in 1:length(Products)) {
-  Product = Products[i]
-  lines(x = TimeSeries[[Product]], col = colors[i], type = 'l')
-}
-
-# Legend showing which line represents each potato type
-legend(x = 'topleft', x.intersp = 0.5, y.intersp = 1,
-       # Position, space between legend items in x and y
-       bty = 'n', col = colors, lty = 'solid',
-       # Remove legend box, set colors and line type
-       ncol = 4, cex = 0.8, legend = Products)
-       # Number of columns in the legend, legend labels
-# This plot is saved as a pdf called All series
-
-# =====> Selected Series
-# Currently, I'm planning to analyze three series:
-#   - Papa única
-#   - Papa sabanera
-#   - Papa parda pastusa
-# Mainly because these are the series with complete data.
-
-Products = c('Papa única', 'Papa sabanera', 'Papa parda pastusa')
-TimeSeries = TimeSeries[Products]
-
+TimeSeries = TimeSeries[,c('Papa superior')]
+TimeSeries = TimeSeries[!is.na(TimeSeries)]
+TimeSeries = ts(TimeSeries, start = 2014, freq = 12)
 par(mar = c(3, 4.1, 4.1, 2.1))
-plot(x = NA, y = NA, xlim = c(2013, 2024), 
+plot(x = NA, y = NA, xlim = c(2014, 2024), 
      ylim = c(min(sapply(TimeSeries, min, na.rm = TRUE)) - 50, 
               max(sapply(TimeSeries, max, na.rm = TRUE)) + 50),
-     main = 'Potato Prices', xlab = NA, ylab = 'Colombian pesos')
+     main = 'Potato Price (Variedad superior)', xlab = NA, ylab = 'Colombian pesos')
 mtext(bquote(bold('Monthly average price per kilogram')), side = 3, col = 'gray', line = 0.35)
 mtext('Prices reported at Corabastos (Bogotá D.C.)', side = 1, line = -1.1, cex = 0.8, adj = 0.99, col = 'azure4')
-abline(v = seq(2013, 2024, by = 0.5), col = 'gray', lty = 'dashed')
-abline(h = seq(0, 4500, by = 250), col = 'gray', lty = 'dashed')
+abline(v = seq(2014, 2024, by = 0.5), col = adjustcolor('gray',0.5), lty = 'dashed')
+abline(h = seq(0, 4500, by = 250), col = adjustcolor('gray',0.5) , lty = 'dashed')
 
 colors = RColorBrewer::brewer.pal(n = 3, name = 'Dark2')
-for (i in 1:length(Products)) {
-  Product = Products[i]
-  lines(x = TimeSeries[[Product]], col = colors[i], type = 'l')
-}
-legend(x = 'topleft', x.intersp = 0.5, y.intersp = 1,
-       col = colors, lty = 'solid', cex = 0.9, legend = Products,
-       bg = rgb(142,229,255, alpha = 100, maxColorValue = 255),
-       box.col = 'white', inset = 0.03)
-# This plot is saved as a pdf called Selected series
+lines(TimeSeries, col = colors[1])
 
+# ===> Save the selected time serie.
 save(TimeSeries, file = 'TimeSeries.RData')
