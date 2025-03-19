@@ -15,12 +15,7 @@ The data includes the following variables:
 
 ![Potato Price Trend](1%29%20Data/Plots/allSeries.png)
 
-> In the open data portal, the data is divided by year, but it has been consolidated into a single dataset to create the time series. Some filtering was done too to focus on the Corabastos info and just in the potato prices. 
-
-
-## Roadmap
-- [x] Get the data and select the main time series to work with.
-- [ ] Perform descriptive analysis (Currently in progress).
+> In the open data portal, the data is divided by year, but it has been consolidated into a single dataset to create the time series. Some filtering was done too to focus on the Corabastos info and just in the potato prices.
 
 ## Authors
 - [Michel Mendivenson Barragán Zabala](mailto:mbarraganz@unal.edu.co)
